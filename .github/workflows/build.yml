@@ -16,7 +16,8 @@ jobs:
   build:
     name: Build Debug APK
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 40
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -26,17 +27,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
-      - name: Set up Gradle 8.9
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Verify toolchain
-        run: |
-          java -version
-          gradle --version
 
       - name: Validate Android manifest XML
         run: python3 -c "import xml.etree.ElementTree as ET; ET.parse('app/src/main/AndroidManifest.xml'); print('Manifest XML: OK')"
