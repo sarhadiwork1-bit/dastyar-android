@@ -1,20 +1,78 @@
-# Stages 6–8 — Security, CI build and integration package
+*.iml
+.gradle/
+build/
+local.properties
+.idea/
+captures/
+*.jks
+*.keystore
 
-## Stage 6: Security and permissions
-- Independent runtime permission requests.
-- Removed broad package visibility permission.
-- Restricted the internal boot receiver.
-- Added a security review with remaining production risks.
+# تغییرات مرحله دوم
 
-## Stage 7: Build pipeline
-- Updated GitHub Actions with minimal repository permissions, concurrency control, JDK 17, Gradle 8.9, manifest XML validation, debug APK build, and artifact upload.
-- Artifact is available only after a successful GitHub Actions run.
+- اضافه‌شدن قرارداد `AiProvider` و رجیستری `AiProviders`.
+- انتقال جزئیات HTTP و Messages API به آداپتور Anthropic.
+- محدودکردن مقصد API به `https://api.anthropic.com`، پورت 443، بدون اطلاعات کاربری، query، fragment یا مسیر سفارشی.
+- غیرفعال‌کردن HTTP redirect در کلاینت ارائه‌دهنده.
+- جلوگیری از ارسال کلید API به میزبان سفارشی واردشده در تنظیمات.
+- سریالی‌کردن نشست‌های Agent برای جلوگیری از تداخل تاریخچه.
+- برچسب‌گذاری خروجی ابزارها به‌عنوان داده غیرقابل‌اعتماد هنگام بازگرداندن به مدل.
+- اصلاح صفحه تنظیمات برای نمایش میزبان ثابت و حذف ورودی آدرس آزاد.
+- مستندسازی معماری و محدودیت‌های فعلی.
 
-## Stage 8: Integration and handoff
-- Consolidated source and documentation into one handoff package.
-- Added a device test and release checklist.
-- No APK is claimed as built because this environment has no network access to resolve Android/Gradle dependencies and no Android SDK build environment.
-- Web development remains intentionally deferred until the Android app passes build and device validation, as previously agreed.
+## موارد انجام‌نشده
+
+- آداپتور ارائه‌دهنده‌های دیگر هنوز پیاده‌سازی نشده است.
+- تست کامپایل Android و تست دستگاه انجام نشده است.
+- اعتبار شناسه مدل انتخابی باید با حساب و API واقعی کاربر آزمایش شود.
+
+# Stage 5 — AI session and private memory foundation
+
+- Added a local memory store backed by the app's existing EncryptedSharedPreferences.
+- Memory is saved only through an explicit `save_memory` tool call and a mandatory in-app confirmation, independent of the general confirmation mode.
+- Added `list_memory` and exact-match `forget_memory` tools; forgetting also requires confirmation.
+- Added limits (40 items, 240 characters each), duplicate detection, and basic rejection of obvious credentials, API keys, one-time codes, and payment-card security data.
+- Only user-approved memory items are injected into the agent system context; arbitrary chat history is not promoted to memory.
+- Memory content is excluded from audit-log arguments.
+- Renamed the user-facing AI action from `ask_claude` to provider-neutral `ask_ai`; the configured provider is still Anthropic in this build.
+- Added settings-screen disclosure of local memory count and storage behavior.
+
+## Not yet completed / requires later work
+
+- This stage does not add a second live AI vendor adapter. `AiProvider` remains the extension boundary; Anthropic is the only configured implementation.
+- No cloud synchronization or web memory access is implemented.
+- Compile, API integration, encrypted-storage migration, and device tests have not been run in this environment.
+
+## Stage 6 — Security and permission review
+- Added independent runtime permission requests in the Home screen.
+- Removed broad package visibility permission and declared launcher intent visibility instead.
+- Restricted the internal boot receiver to non-exported.
+- Added `SECURITY_REVIEW_STAGE6.md` documenting remaining security and release checks.
+
+org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
+android.useAndroidX=true
+kotlin.code.style=official
+android.nonTransitiveRClass=true
+
+# Fixes applied (post stage 6–8 handoff)
+
+## 1. Accessibility service configuration
+- Expanded `accessibilityEventTypes` to include window content changes, clicks, focus and text changes.
+- Added flags: `flagReportViewIds`, `flagIncludeNotImportantViews`.
+- Enabled `canPerformGestures="true"` for more reliable UI control.
+- Linked `settingsActivity` to MainActivity.
+
+Previous config only listened to `typeWindowStateChanged`, which is too weak for reliable screen reading and interaction on modern Android / HyperOS.
+
+## 2. Default Claude model ID
+- Changed default from the invalid / outdated `claude-sonnet-5-5` to the valid API model ID `claude-sonnet-5`.
+- Users can still override the model string in Settings.
+
+## 3. Documentation consistency
+- README artifact name aligned with the GitHub Actions workflow (`dastyar-android-debug-*`).
+
+## Notes
+- Full Gradle build and on-device test still required after uploading to GitHub.
+- The source tree root for the repository must be the contents of the `dastyar/` folder (including `.github/`), not the outer `stage5/` folder.
 
 # دستیار (Dastyar) — دستیار صوتی اندروید
 
@@ -28,7 +86,7 @@
    اگر `.github` آپلود نشد: **Add file ← Create new file** ، در نام فایل بنویسید
    `.github/workflows/build.yml` و محتوای همان فایل را paste کنید.
 5. **Commit changes** را بزنید.
-6. تب **Actions** ← اجرای «Build Android APK» ← صبر (۵ تا ۸ دقیقه) ← پایین صفحه، بخش **Artifacts** ← `dastyar-debug-apk` را دانلود کنید.
+6. تب **Actions** ← اجرای «Build Android APK» ← صبر (۵ تا ۸ دقیقه) ← پایین صفحه، بخش **Artifacts** ← `dastyar-android-debug-*` را دانلود کنید.
 7. zip دانلودشده را باز کنید و `app-debug.apk` را روی گوشی نصب کنید.
 
 ## راه‌اندازی روی گوشی (شیائومی / HyperOS)
@@ -86,55 +144,38 @@ The AI provider interface is vendor-neutral, but this release still has only the
 - Review `SECURITY_REVIEW_STAGE6.md` and `RELEASE_CHECKLIST.md` before installing or distributing a build.
 - This source has not yet been verified by a successful Android Gradle build or on-device test.
 
-# Android release checklist
+pluginManagement {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories { google(); mavenCentral() }
+}
+rootProject.name = "Dastyar"
+include(":app")
 
-## Before first installation
-- [ ] GitHub Actions build completes successfully.
-- [ ] Download the `dastyar-android-debug-*` artifact from the successful workflow run.
-- [ ] Install on a test device and confirm the package launches.
-- [ ] Grant permissions one by one; verify denying an optional permission does not block unrelated features.
-- [ ] Test microphone foreground-service start/stop and persistent notification.
-- [ ] Test wake word recognition in Persian and measure battery use over at least 1 hour.
-- [ ] Test contact matching with Persian and Latin spellings, duplicate names, and multiple numbers.
-- [ ] Test call and SMS confirmations, including cancel/decline paths.
-- [ ] Test reminder delivery after app process death and device reboot.
-- [ ] Test accessibility only after the user explicitly enables it in Android Settings.
-- [ ] Test encrypted API-key and memory persistence; verify no secret appears in logs.
-- [ ] Test on Xiaomi HyperOS with battery restrictions both enabled and disabled.
+plugins {
+    id("com.android.application") version "8.5.2" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+}
 
-## Before public distribution
-- [ ] Review current Google Play target API and sensitive-permission policies.
-- [ ] Replace debug signing with a securely managed release signing key.
-- [ ] Never commit keystore files or passwords to GitHub.
-- [ ] Review the alpha AndroidX Security Crypto dependency and plan migration to a maintained Keystore-backed solution.
-- [ ] Complete a privacy policy and data-safety disclosure appropriate to actual data flows.
-- [ ] Perform a release build and inspect the merged manifest.
+# Stages 6–8 — Security, CI build and integration package
 
-## Current status
-This source package is a development candidate, not a verified release. No APK is included because a real Gradle build has not yet run in this environment.
+## Stage 6: Security and permissions
+- Independent runtime permission requests.
+- Removed broad package visibility permission.
+- Restricted the internal boot receiver.
+- Added a security review with remaining production risks.
 
-# Stage 5 — AI session and private memory foundation
+## Stage 7: Build pipeline
+- Updated GitHub Actions with minimal repository permissions, concurrency control, JDK 17, Gradle 8.9, manifest XML validation, debug APK build, and artifact upload.
+- Artifact is available only after a successful GitHub Actions run.
 
-- Added a local memory store backed by the app's existing EncryptedSharedPreferences.
-- Memory is saved only through an explicit `save_memory` tool call and a mandatory in-app confirmation, independent of the general confirmation mode.
-- Added `list_memory` and exact-match `forget_memory` tools; forgetting also requires confirmation.
-- Added limits (40 items, 240 characters each), duplicate detection, and basic rejection of obvious credentials, API keys, one-time codes, and payment-card security data.
-- Only user-approved memory items are injected into the agent system context; arbitrary chat history is not promoted to memory.
-- Memory content is excluded from audit-log arguments.
-- Renamed the user-facing AI action from `ask_claude` to provider-neutral `ask_ai`; the configured provider is still Anthropic in this build.
-- Added settings-screen disclosure of local memory count and storage behavior.
-
-## Not yet completed / requires later work
-
-- This stage does not add a second live AI vendor adapter. `AiProvider` remains the extension boundary; Anthropic is the only configured implementation.
-- No cloud synchronization or web memory access is implemented.
-- Compile, API integration, encrypted-storage migration, and device tests have not been run in this environment.
-
-## Stage 6 — Security and permission review
-- Added independent runtime permission requests in the Home screen.
-- Removed broad package visibility permission and declared launcher intent visibility instead.
-- Restricted the internal boot receiver to non-exported.
-- Added `SECURITY_REVIEW_STAGE6.md` documenting remaining security and release checks.
+## Stage 8: Integration and handoff
+- Consolidated source and documentation into one handoff package.
+- Added a device test and release checklist.
+- No APK is claimed as built because this environment has no network access to resolve Android/Gradle dependencies and no Android SDK build environment.
+- Web development remains intentionally deferred until the Android app passes build and device validation, as previously agreed.
 
 # Stage 6 — Security review and permission hardening
 
@@ -162,23 +203,6 @@ This source package is a development candidate, not a verified release. No APK i
 - Permission declarations and exported components reviewed.
 - Kotlin source changes checked textually.
 - Full Gradle build and on-device tests were not run in this environment.
-
-# تغییرات مرحله چهارم — صدا و کلمه بیدارباش
-
-## تغییرات
-- جلوگیری از فعال‌شدن چندباره فرمان بر اثر تکرار نتایج تشخیص گفتار (debounce با فاصله ۲٫۵ ثانیه).
-- ثبت رویداد تشخیص کلمه بیدارباش بدون ذخیره متن گفتار.
-- راه‌اندازی مجدد تشخیص‌گر پس از خطا یا timeout با تأخیر افزایشی تا ۳۰ ثانیه.
-- بررسی مجوز میکروفون پیش از شروع تشخیص و توقف ایمن در صورت نبود مجوز.
-- آزادسازی تشخیص‌گر قبلی هنگام پایان نشست یا خطا.
-- محدودکردن تطبیق عبارت بیدارباش به حداکثر دو توکن برای کاهش فعال‌سازی اشتباه.
-- افزودن توضیح داخل برنامه درباره شنود آفلاین، اعلان میکروفون و مصرف باتری.
-
-## محدودیت‌ها و موارد نیازمند آزمایش
-- Vosk همچنان موتور تشخیص آفلاین کلمه بیدارباش است؛ دقت آن برای لهجه و فاصله میکروفون باید روی گوشی واقعی سنجیده شود.
-- پایداری سرویس پس‌زمینه به نسخه Android/HyperOS و تنظیمات باتری وابسته است.
-- شنود مداوم میکروفون مصرف باتری دارد؛ اعلان Foreground Service عمداً حفظ شده است.
-- ساخت APK و تست واقعی روی Redmi Note 13 Pro+ در این محیط انجام نشده است.
 
 # معماری فنی دستیار
 
@@ -238,49 +262,46 @@ Audit logging omits personal identifiers and content for contact, call, SMS, scr
 - Android compilation, runtime permission flows, SMS delivery broadcasts, OEM behavior, and device testing have not been performed.
 - Android/HyperOS may restrict or alter some quick-settings tiles and background behavior.
 
-# تغییرات مرحله دوم
+# تغییرات مرحله چهارم — صدا و کلمه بیدارباش
 
-- اضافه‌شدن قرارداد `AiProvider` و رجیستری `AiProviders`.
-- انتقال جزئیات HTTP و Messages API به آداپتور Anthropic.
-- محدودکردن مقصد API به `https://api.anthropic.com`، پورت 443، بدون اطلاعات کاربری، query، fragment یا مسیر سفارشی.
-- غیرفعال‌کردن HTTP redirect در کلاینت ارائه‌دهنده.
-- جلوگیری از ارسال کلید API به میزبان سفارشی واردشده در تنظیمات.
-- سریالی‌کردن نشست‌های Agent برای جلوگیری از تداخل تاریخچه.
-- برچسب‌گذاری خروجی ابزارها به‌عنوان داده غیرقابل‌اعتماد هنگام بازگرداندن به مدل.
-- اصلاح صفحه تنظیمات برای نمایش میزبان ثابت و حذف ورودی آدرس آزاد.
-- مستندسازی معماری و محدودیت‌های فعلی.
+## تغییرات
+- جلوگیری از فعال‌شدن چندباره فرمان بر اثر تکرار نتایج تشخیص گفتار (debounce با فاصله ۲٫۵ ثانیه).
+- ثبت رویداد تشخیص کلمه بیدارباش بدون ذخیره متن گفتار.
+- راه‌اندازی مجدد تشخیص‌گر پس از خطا یا timeout با تأخیر افزایشی تا ۳۰ ثانیه.
+- بررسی مجوز میکروفون پیش از شروع تشخیص و توقف ایمن در صورت نبود مجوز.
+- آزادسازی تشخیص‌گر قبلی هنگام پایان نشست یا خطا.
+- محدودکردن تطبیق عبارت بیدارباش به حداکثر دو توکن برای کاهش فعال‌سازی اشتباه.
+- افزودن توضیح داخل برنامه درباره شنود آفلاین، اعلان میکروفون و مصرف باتری.
 
-## موارد انجام‌نشده
+## محدودیت‌ها و موارد نیازمند آزمایش
+- Vosk همچنان موتور تشخیص آفلاین کلمه بیدارباش است؛ دقت آن برای لهجه و فاصله میکروفون باید روی گوشی واقعی سنجیده شود.
+- پایداری سرویس پس‌زمینه به نسخه Android/HyperOS و تنظیمات باتری وابسته است.
+- شنود مداوم میکروفون مصرف باتری دارد؛ اعلان Foreground Service عمداً حفظ شده است.
+- ساخت APK و تست واقعی روی Redmi Note 13 Pro+ در این محیط انجام نشده است.
 
-- آداپتور ارائه‌دهنده‌های دیگر هنوز پیاده‌سازی نشده است.
-- تست کامپایل Android و تست دستگاه انجام نشده است.
-- اعتبار شناسه مدل انتخابی باید با حساب و API واقعی کاربر آزمایش شود.
+# Android release checklist
 
-*.iml
-.gradle/
-build/
-local.properties
-.idea/
-captures/
-*.jks
-*.keystore
+## Before first installation
+- [ ] GitHub Actions build completes successfully.
+- [ ] Download the `dastyar-android-debug-*` artifact from the successful workflow run.
+- [ ] Install on a test device and confirm the package launches.
+- [ ] Grant permissions one by one; verify denying an optional permission does not block unrelated features.
+- [ ] Test microphone foreground-service start/stop and persistent notification.
+- [ ] Test wake word recognition in Persian and measure battery use over at least 1 hour.
+- [ ] Test contact matching with Persian and Latin spellings, duplicate names, and multiple numbers.
+- [ ] Test call and SMS confirmations, including cancel/decline paths.
+- [ ] Test reminder delivery after app process death and device reboot.
+- [ ] Test accessibility only after the user explicitly enables it in Android Settings.
+- [ ] Test encrypted API-key and memory persistence; verify no secret appears in logs.
+- [ ] Test on Xiaomi HyperOS with battery restrictions both enabled and disabled.
 
-plugins {
-    id("com.android.application") version "8.5.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-}
+## Before public distribution
+- [ ] Review current Google Play target API and sensitive-permission policies.
+- [ ] Replace debug signing with a securely managed release signing key.
+- [ ] Never commit keystore files or passwords to GitHub.
+- [ ] Review the alpha AndroidX Security Crypto dependency and plan migration to a maintained Keystore-backed solution.
+- [ ] Complete a privacy policy and data-safety disclosure appropriate to actual data flows.
+- [ ] Perform a release build and inspect the merged manifest.
 
-org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
-android.useAndroidX=true
-kotlin.code.style=official
-android.nonTransitiveRClass=true
-
-pluginManagement {
-    repositories { google(); mavenCentral(); gradlePluginPortal() }
-}
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories { google(); mavenCentral() }
-}
-rootProject.name = "Dastyar"
-include(":app")
+## Current status
+This source package is a development candidate, not a verified release. No APK is included because a real Gradle build has not yet run in this environment.
