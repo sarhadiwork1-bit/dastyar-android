@@ -65,10 +65,10 @@ object Prefs {
     var listenLang by Str("lang", "fa-IR")
 
     // AI
-    var aiProvider by Str("ai_provider", "anthropic")
+    var aiProvider by Str("ai_provider", "openai")
     var apiKey by Str("api_key", "", true)
-    var apiBase by Str("api_base", "https://api.anthropic.com")
-    var model by Str("model", "claude-sonnet-5")
+    var apiBase by Str("api_base", "https://openrouter.ai/api/v1")
+    var model by Str("model", "openai/gpt-4o-mini")
 
     // Voice
     var speakReplies by Bool("speak", true)
