@@ -312,10 +312,31 @@ fun SettingsScreen(
         Text("زبان تشخیص دستور")
         Choice(listOf("fa-IR" to "فارسی", "en-US" to "English"), lang) { lang = it; Prefs.listenLang = it }
 
-        Text("هوش مصنوعی (ارائه‌دهنده فعلی: Anthropic؛ زیرساخت قابل توسعه)")
+        Text("هوش مصنوعی")
+        var aiProv by remember { mutableStateOf(Prefs.aiProvider) }
+        Choice(
+            listOf("openai" to "OpenAI-compatible (پیشنهادی)", "anthropic" to "Anthropic"),
+            aiProv
+        ) {
+            aiProv = it
+            Prefs.aiProvider = it
+            if (it == "anthropic") {
+                Prefs.apiBase = "https://api.anthropic.com"
+                if (Prefs.model.contains("/")) Prefs.model = "claude-sonnet-5"
+            } else if (Prefs.apiBase.contains("anthropic")) {
+                Prefs.apiBase = "https://openrouter.ai/api/v1"
+                Prefs.model = "openai/gpt-4o-mini"
+            }
+        }
         Field("کلید API", Prefs.apiKey, true) { Prefs.apiKey = it.trim() }
-        Text("نشانی امن سرویس: api.anthropic.com (قابل تغییر نیست)", style = MaterialTheme.typography.bodySmall)
+        if (aiProv == "openai") {
+            Field("آدرس پایه API (Base URL)", Prefs.apiBase) { Prefs.apiBase = it.trim() }
+            Text("مثال: https://openrouter.ai/api/v1 یا https://api.groq.com/openai/v1", style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text("نشانی امن Anthropic: api.anthropic.com (ثابت)", style = MaterialTheme.typography.bodySmall)
+        }
         Field("شناسه مدل", Prefs.model) { Prefs.model = it.trim() }
+        Text("برای OpenRouter مثلاً openai/gpt-4o-mini — برای Groq مثلاً llama-3.3-70b-versatile", style = MaterialTheme.typography.bodySmall)
         Text("حافظه خصوصی")
         Text("${MemoryStore.count()} مورد ذخیره‌شده؛ فقط مواردی که صریحاً درخواست و تأیید کنی نگهداری می‌شوند.", style = MaterialTheme.typography.bodySmall)
         Text("اطلاعات در فضای رمزگذاری‌شده محلی دستگاه ذخیره می‌شود و به‌صورت خودکار از گفتگوها استخراج نمی‌شود.", style = MaterialTheme.typography.bodySmall)
